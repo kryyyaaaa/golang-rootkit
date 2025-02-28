@@ -12,4 +12,5 @@ the *first* rootkit written in golang
   rootkit unwinlogon
   rootkit disable/enable cmd/taskmgr/registry
   rootkit install
-  rootkit uninstall```
+  rootkit uninstall
+```
