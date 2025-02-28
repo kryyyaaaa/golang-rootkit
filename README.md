@@ -7,12 +7,9 @@ the *first* rootkit written in golang
 
 **Usage:**
 ```
-  rootkit show|hide <path>
-  rootkit winlogon <programPath>
+  rootkit <path> show/hide
+  rootkit <programPath> winlogon
   rootkit unwinlogon
-  rootkit disabletaskmgr
-  rootkit enabletaskmgr
-  rootkit disablecmd
-  rootkit enablecmd
-  rootkit disableregistry
-  rootkit enableregistry```
+  rootkit disable/enable cmd/taskmgr/registry
+  rootkit install
+  rootkit uninstall```
