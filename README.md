@@ -1,7 +1,7 @@
 > сделанно командой <a href="https://kryyaasoft.t.me">@kryyaasoft</a>
 
 ## About rootkit
-the ||no|| *first* rootkit written in golang
+the |no| *first* rootkit written in golang
 
 ---
 
