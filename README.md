@@ -1,11 +1,11 @@
 > сделанно командой <a href="https://kryyaasoft.t.me">@kryyaasoft</a>
 
 ## About rootkit
-the first rootkit written in golang
+the *first* rootkit written in golang
 
 ---
 
-Usage:
+**Usage:**
 ```
   rootkit <path> <show|hide>
   rootkit <programPath> winlogon
