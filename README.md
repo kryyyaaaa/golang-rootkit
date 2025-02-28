@@ -6,6 +6,7 @@ the first rootkit written in golang
 ---
 
 Usage:
+```
   rootkit <path> <show|hide>
   rootkit <programPath> winlogon
   rootkit unwinlogon
@@ -14,4 +15,4 @@ Usage:
   rootkit disablecmd
   rootkit enablecmd
   rootkit disableregistry
-  rootkit enableregistry
+  rootkit enableregistry```
