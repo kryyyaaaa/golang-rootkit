@@ -297,8 +297,8 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("This rootkit hides files and folders with the '$ks69' prefix!")
 		fmt.Println("Usage:")
-		fmt.Println("  rootkit <path> <show|hide>")
-		fmt.Println("  rootkit <programPath> winlogon")
+		fmt.Println("  rootkit show|hide <path>")
+		fmt.Println("  rootkit winlogon <programPath>")
 		fmt.Println("  rootkit unwinlogon")
 		fmt.Println("  rootkit disabletaskmgr")
 		fmt.Println("  rootkit enabletaskmgr")
